@@ -204,7 +204,6 @@ dependencies:
   - zlib=1.2.12=h8cc25b3_3
   - zstd=1.5.2=h19a0ad4_0
   - pip:
-    - advanced-pca==0.1.4
     - cfgv==3.3.1
     - cognitiveatlas==0.1.9
     - distlib==0.3.6
@@ -242,4 +241,4 @@ dependencies:
     - tqdm==4.64.1
     - urllib3==1.26.12
     - virtualenv==20.16.5
-prefix: C:\Users\Ian\anaconda3\envs\gpr
+prefix: C:\Users\Smallwood Lab\anaconda3\envs\gpr
