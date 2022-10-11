@@ -1,4 +1,4 @@
-Task_name,Participant#,Runtime_mod,Absorption_response,Other_response,Problem_response,Modality_response,Past_response,Distracting_response,Focus_response,Intrusive_response,Deliberate_response,Detailed_response,Future_response,Emotion_response,Self_response,Knowledge_response,Gradient1,Gradient2,Gradient3,FAC1_1,FAC2_1,FAC3_1,FAC4_1
+Task_name,Participant#,Runtime_mod,Absorption_response,Other_response,Problem_response,Images_response,Past_response,Distracting_response,Focus_response,Intrusive_response,Deliberate_response,Detailed_response,Future_response,Emotion_response,Self_response,Knowledge_response,Gradient1,Gradient2,Gradient3,FAC1_1,FAC2_1,FAC3_1,FAC4_1
 Zero-Back Task,subject001,-5,9.6,9.9,1.5,1.1,9,8.8,6.1,6.2,8.8,8,2.2,5.1,1.4,6.5,0.092938575,-0.060981684,-0.3893953,1.155956943,0.881398667,-0.310842396,-1.729095916
 Zero-Back Task,subject001,-6,8.4,6.8,1,5.6,4.4,9.3,6,6.3,9,9,8,7.8,6.3,3.5,0.092938575,-0.060981684,-0.3893953,0.541397563,1.53214454,-0.125065926,0.315202212
 Zero-Back Task,subject002,-12,9,9.5,8.8,9.8,4,9,8.4,3,2.5,8.7,1.9,7.3,7,8.8,0.092938575,-0.060981684,-0.3893953,0.748360736,1.122704057,0.601508355,0.991322907
