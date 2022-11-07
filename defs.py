@@ -378,7 +378,8 @@ def PCAfunc(PCAdata: pd.DataFrame, n_comp: int) -> Tuple[pd.DataFrame, pd.DataFr
     )  # We want this to be > 0.6"kmo_all, kmo_model  # kmo_model > 0.6 is acceptable
     #PCAmodel = CustomPCA(n_components=n_comp, rotation="varimax")
     from scipy.stats import zscore
-    PCAdata = PCAdata.apply(lambda x: zscore(x),axis=1)  # zscore the dataframe to normalise it.)
+    # PCAdata = zscore(cols as array, axis=1)
+    PCAdata = PCAdata.apply(lambda x: zscore(x),axis=0)  # zscore the dataframe to normalise it.)
     PCAmodel = PCA(n_components=n_comp)
     rot = Rotator()
     
@@ -388,13 +389,13 @@ def PCAfunc(PCAdata: pd.DataFrame, n_comp: int) -> Tuple[pd.DataFrame, pd.DataFr
     loadings = rot.fit_transform(PCAmodel.components_.T).T
     #lods = rot.transform(PCAmodel.components_.T)
     names = PCAdata.columns
-   
+    #loadings = PCAmodel.components_
     loadings = pd.DataFrame(
         np.round(loadings.T, 3),
         index=names,
         columns=[f"Component {x}" for x in range(n_comp)],
     )
-    PCAresults = np.dot(PCAdata,loadings)
+    PCAresults = np.dot(PCAdata,loadings).T
     #PCAresults = PCAmodel.transform(PCAdata).T
     # PCAresults = pcmo.transform(PCAdata).T
     

@@ -41,7 +41,7 @@ def load_fmris(path: str) -> dict:
 if __name__ == "__main__":
     yeo = True
     if yeo:
-        yeover = "thin_7"
+        yeover = "thick_7"
         yeonum = yeover.split("_")[-1]
         atlasdir = "yeo_networks"
         parcellation = load_img(fetch_atlas_yeo_2011(atlasdir)[yeover])
@@ -107,8 +107,8 @@ if __name__ == "__main__":
         parcellation,
         parcelnames,
         metric="p-val",
-        subject_level=False,
-        nproc=1,
+        subject_level=True,
+        nproc=8,
     )
     PCAtoGrad = dict(PCAtoGrad)
     GradtoPCA = dict(GradtoPCA)
@@ -116,12 +116,12 @@ if __name__ == "__main__":
         PCAtoGrad,
         orient="index",
         columns=[
-            "Correlation of lesioned-brain predicted gradients to whole brain predicted gradients",
+            "p-values of PCAS predicting lesioned-brain Gradients",
             "Network",
         ],
     )
     PCAtoGradframe = PCAtoGradframe.sort_values(
-        "Correlation of lesioned-brain predicted gradients to whole brain predicted gradients",
+        "p-values of PCAS predicting lesioned-brain Gradients",
         ascending=False,
     )
     PCAtoGradframe["Lesioned Parcel"] = PCAtoGradframe.index
@@ -129,12 +129,12 @@ if __name__ == "__main__":
         GradtoPCA,
         orient="index",
         columns=[
-            "Correlation of lesioned-brain predicted PCAs to whole brain predicted PCAs",
+            "p-values of lesioned-brain Gradients predicting PCAs",
             "Network",
         ],
     )
     GradtoPCAframe = GradtoPCAframe.sort_values(
-        "Correlation of lesioned-brain predicted PCAs to whole brain predicted PCAs",
+        "p-values of lesioned-brain Gradients predicting PCAs",
         ascending=False,
     )
     GradtoPCAframe["Lesioned Parcel"] = GradtoPCAframe.index
@@ -143,7 +143,7 @@ if __name__ == "__main__":
     fig = px.bar(
         PCAtoGradframe,
         x="Lesioned Parcel",
-        y="Correlation of lesioned-brain predicted gradients to whole brain predicted gradients",
+        y="p-values of PCAS predicting lesioned-brain Gradients",
         color="Network",
         category_orders={
             "Lesioned Parcel": PCAtoGradframe["Lesioned Parcel"].to_list()
@@ -153,7 +153,7 @@ if __name__ == "__main__":
     fig = px.bar(
         GradtoPCAframe,
         x="Lesioned Parcel",
-        y="Correlation of lesioned-brain predicted PCAs to whole brain predicted PCAs",
+        y="p-values of lesioned-brain Gradients predicting PCAs",
         color="Network",
         category_orders={
             "Lesioned Parcel": GradtoPCAframe["Lesioned Parcel"].to_list()
