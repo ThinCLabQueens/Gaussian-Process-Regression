@@ -204,8 +204,11 @@ dependencies:
   - zlib=1.2.12=h8cc25b3_3
   - zstd=1.5.2=h19a0ad4_0
   - pip:
+    - advanced-pca==0.1.4
     - cfgv==3.3.1
+    - cloudpickle==2.2.0
     - cognitiveatlas==0.1.9
+    - dirty-cat==0.3.0
     - distlib==0.3.6
     - factor-analyzer==0.4.1
     - filelock==3.8.0
@@ -215,7 +218,9 @@ dependencies:
     - importlib-metadata==5.0.0
     - indexed-gzip==1.7.0
     - joblib==1.2.0
+    - line-profiler==3.5.1
     - llvmlite==0.39.1
+    - loky==3.3.0
     - matplotlib==3.4.3
     - mpmath==1.2.1
     - nibabel==4.0.2
@@ -241,4 +246,6 @@ dependencies:
     - tqdm==4.64.1
     - urllib3==1.26.12
     - virtualenv==20.16.5
-prefix: C:\Users\Smallwood Lab\anaconda3\envs\gpr
+    - wordcloud==1.8.2.2
+    - xgboost==1.6.2
+prefix: C:\Users\Ian\anaconda3\envs\gpr

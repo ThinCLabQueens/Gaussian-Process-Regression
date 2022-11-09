@@ -95,7 +95,7 @@ if __name__ == "__main__":
         parcelnames = parcellation["labels"].tolist()
         parcellation = load_img(parcellation["maps"])
     data = pd.read_csv(
-        "output_.csv"
+        "output.csv"
     )  # Reading datafile (should be in the same directory as our IDE)
     data = data.set_index("Task_name")
     gradientMaps = load_fmris("gradients")
