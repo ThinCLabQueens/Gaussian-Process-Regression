@@ -17,6 +17,7 @@ from scipy import stats
 import pandas as pd
 import math
 import warnings
+from sklearn.model_selection import StratifiedKFold
 import numbers
 import time
 from functools import partial
@@ -64,8 +65,8 @@ from sklearn.utils._testing import ignore_warnings
 from wordcloud import WordCloud
 from typing import Tuple
 from sklearn.decomposition import PCA
-
-def permutation_test_score(
+from sklearn.model_selection import permutation_test_score
+def permutation_test_score_(
     estimator,
     X,
     y,
@@ -225,9 +226,40 @@ def _permutation_test_score(estimator, X, y, groups, cv, scorer, fit_params):
     # Adjust length of sample weights
     fit_params = fit_params if fit_params is not None else {}
     avg_score = []
-    for train, test in cv.split(X, y, groups):
+    newmethod = False
+    for train, test in cv.split(X, groups if newmethod else y):
         X_train, y_train = _safe_split(estimator, X, y, train)
         X_test, y_test = _safe_split(estimator, X, y, test, train)
+        if newmethod:
+            test_groups = groups[test] if groups is not None else None
+            train_groups = groups[train] if groups is not None else None
+
+
+            tasknum = np.unique(train_groups)
+            FAC_TaskCentres = np.zeros([tasknum.shape[0],X_train.shape[1]])
+            for i in tasknum:
+                FAC_TaskCentres[i, :] = X_train[train_groups == i, :].mean(axis=0)
+            X_train = FAC_TaskCentres
+
+            Grad_TaskCentres = np.zeros([tasknum.shape[0],y_train.shape[1]])
+            for i in tasknum:
+                Grad_TaskCentres[i, :] = y_train[train_groups == i, :].mean(
+                    axis=0
+                )
+            y_train = Grad_TaskCentres
+
+            FAC_TaskCentres = np.zeros([tasknum.shape[0],X_test.shape[1]])
+            for i in tasknum:
+                FAC_TaskCentres[i, :] = X_test[test_groups == i, :].mean(axis=0)
+            X_test = FAC_TaskCentres
+
+            Grad_TaskCentres = np.zeros([tasknum.shape[0],y_test.shape[1]])
+            for i in tasknum:
+                Grad_TaskCentres[i, :] = y_test[test_groups == i, :].mean(
+                    axis=0
+                )
+            y_test = Grad_TaskCentres
+
         fit_params = _check_fit_params(X, fit_params, train)
         estimator.fit(X_train, y_train, **fit_params)
         avg_score.append(scorer(estimator, X_test, y_test))
@@ -265,7 +297,7 @@ def varimax_(Phi, gamma = 2, q = 50, tol = 1e-6):
     return dot(Phi, R) # Return the rotation matrix Phi*R
 
 
-def permtest(X, y, k=5, subset=False):
+def permtest(X, y,indices=None, k=5, subset=False):
     """
     This function performs a permutation test on the data.
     Parameters
@@ -885,7 +917,10 @@ def permutation_pipeline(
             Tasklabels=Tasklabels,
             path="figs",
         )
-    scores = permtest(Grad_TaskCentres, FAC_TaskCentres, subset=True)
+    if subject_level:
+        scores = permtest(Grad_TaskCentres, FAC_TaskCentres,Taskindices, subset=True)
+    else:
+        scores = permtest(Grad_TaskCentres, FAC_TaskCentres, subset=True)
     score_dict = {"PCA->Gradients": scores}
     if verbose > 0:
         display_scores(loadings, scores, "component")
@@ -897,7 +932,10 @@ def permutation_pipeline(
             Tasklabels=Tasklabels,
             path="pcafigs",
         )
-    scores = permtest(FAC_TaskCentres, Grad_TaskCentres, subset=True)
+    if subject_level:
+        scores = permtest(FAC_TaskCentres, Grad_TaskCentres,Taskindices, subset=True)
+    else:
+        scores = permtest(FAC_TaskCentres, Grad_TaskCentres, subset=True)
     score_dict["Gradients->PCA"] = scores
     if verbose > 0:
         display_scores(loadings, scores, "gradient")

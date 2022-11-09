@@ -21,7 +21,7 @@ from plotly.io import templates
 # )
 # set_start_method('loky')
 templates.default = "plotly_dark"
-# Fit whole dataset
+# Fit whole datasetS
 def load_fmris(path: str) -> dict:
     """
     Loads all the fmri images from the given path.
@@ -107,7 +107,7 @@ if __name__ == "__main__":
         parcellation,
         parcelnames,
         metric="p-val",
-        subject_level=True,
+        subject_level=False,
         nproc=8,
     )
     PCAtoGrad = dict(PCAtoGrad)
