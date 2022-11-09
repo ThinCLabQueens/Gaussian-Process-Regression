@@ -41,7 +41,7 @@ def load_fmris(path: str) -> dict:
 if __name__ == "__main__":
     yeo = True
     if yeo:
-        yeover = "thick_7"
+        yeover = "thick_7"  # Options: "thick_7", "thick_17", "thin_7", "thin_17"
         yeonum = yeover.split("_")[-1]
         atlasdir = "yeo_networks"
         parcellation = load_img(fetch_atlas_yeo_2011(atlasdir)[yeover])
