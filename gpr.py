@@ -33,7 +33,7 @@ def load_fmris(path: str) -> dict:
     return imgs
 
 
-def pipeline(yeo = True, splitmaps = False,yeover = "thick_7", subset = False,subject_level = False,shafer_rois=400,datapath="output.csv",n_jobs=-1,lesions=True,debug=False,verbose=1):
+def pipeline(yeo = True, splitmaps = False,yeover = "thick_7",output_figures=False, subset = False,subject_level = False,shafer_rois=400,datapath="output.csv",n_jobs=-1,lesions=True,debug=False,verbose=1):
     import itertools
     import plotly.express as px
     if lesions:
@@ -110,6 +110,7 @@ def pipeline(yeo = True, splitmaps = False,yeover = "thick_7", subset = False,su
         subject_level=subject_level,
         nproc=(cpus - 2 if n_jobs == -1 else n_jobs) ,
         subset=subset,
+        output_figures=output_figures,
         debug=debug,
         verbose=verbose
     )
@@ -197,5 +198,5 @@ def pipeline(yeo = True, splitmaps = False,yeover = "thick_7", subset = False,su
             fig.write_html("figures/predicting all PCAs.html")
             
 if __name__ == '__main__':
-    pipeline(debug=False,verbose=-1)
+    pipeline(lesions=False,debug=False,output_figures=True,verbose=1,n_jobs=1,subset=False)
     #fire.Fire(pipeline)

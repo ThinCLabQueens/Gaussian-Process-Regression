@@ -17,10 +17,10 @@ def wordcloud(loadings):
     Returns:
         im (PIL.Image.Image): The wordcloud image.
     """
-    unscaledloadings = loadings.sort_values(by=loadings.columns[0], ascending=False)
-    scaledloadings = MinMaxScaler().fit_transform(unscaledloadings).flatten().round(4)
+    unscaledloadings = loadings.sort_values(ascending=False)
+    scaledloadings = MinMaxScaler().fit_transform(unscaledloadings.values.reshape(-1, 1)).flatten().round(4)
     scaledloadings_col = (
-        MinMaxScaler(feature_range=(-10, 10)).fit_transform(unscaledloadings).round(4)
+        MinMaxScaler(feature_range=(-10, 10)).fit_transform(unscaledloadings.values.reshape(-1, 1)).round(4)
     )
     scaledloadings_col = (
         pd.DataFrame(scaledloadings_col.T)

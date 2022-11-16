@@ -2,14 +2,16 @@ import copy
 from itertools import repeat
 from multiprocessing import Manager, Pool
 from typing import Tuple
+from plotting import wordcloud
 import numpy as np
 import pandas as pd
-from factor_analyzer.factor_analyzer import calculate_bartlett_sphericity, calculate_kmo
+from factor_analyzer.factor_analyzer import (calculate_bartlett_sphericity,
+                                             calculate_kmo)
+from nilearn.image import binarize_img
 from factor_analyzer.rotator import Rotator
 from joblib import Parallel, delayed
 from nilearn.image import new_img_like, resample_to_img
 from nilearn.masking import apply_mask, compute_background_mask
-from plotting import display_scores, to_html
 from scipy import stats
 from scipy.stats import zscore
 from sklearn.base import BaseEstimator, clone, is_classifier
@@ -18,19 +20,14 @@ from sklearn.exceptions import ConvergenceWarning
 from sklearn.gaussian_process import GaussianProcessRegressor
 from sklearn.gaussian_process.kernels import Kernel, Matern, WhiteKernel
 from sklearn.metrics import check_scoring
-
 # from advanced_pca import CustomPCA
 # user_dir = os.path.expanduser("~")
 # os.environ["R_HOME"] = f"{user_dir}/anaconda3/envs/gpr/Lib/R"
 # os.environ["PATH"] = (
 #     f"{user_dir}/anaconda3/envs/gpr/Lib/R/bin/x64;" + os.environ["PATH"]
 # )
-from sklearn.model_selection import (
-    KFold,
-    LeaveOneGroupOut,
-    cross_val_score,
-    permutation_test_score,
-)
+from sklearn.model_selection import (KFold, LeaveOneGroupOut, cross_val_score,
+                                     permutation_test_score)
 from sklearn.model_selection._split import check_cv
 from sklearn.preprocessing import StandardScaler
 from sklearn.utils import _safe_indexing, check_random_state, indexable
@@ -39,6 +36,8 @@ from sklearn.utils.fixes import delayed
 from sklearn.utils.metaestimators import _safe_split
 from sklearn.utils.validation import _check_fit_params, _num_samples
 from tqdm import tqdm
+
+from plotting import display_scores, to_html
 
 
 def permutation_test_score_(
@@ -327,7 +326,10 @@ class gpr(BaseEstimator):
         Returns:
             The fitted model.
         """
-        refdata = self.refdata.iloc[train]
+        if train != None:
+            refdata = self.refdata.iloc[train]
+        else:
+            refdata = self.refdata
         if self.version == "PCA":
             self.loadings, PCAresults, self.PCModel = PCAfunc(X, self.n_comp, verbose=0)
             __, _, X, y = averageData(
@@ -383,7 +385,7 @@ class gpr(BaseEstimator):
     def score(self, X, y):
         return self.model.score(X, y)
 
-
+# TODO: this breaks on output_figures
 def PCAfunc(
     PCAdata: pd.DataFrame, n_comp: int, verbose=1
 ) -> Tuple[pd.DataFrame, pd.DataFrame]:
@@ -524,7 +526,11 @@ def corr(
     results = {}
     if masker is None:
         dummy_map = src_img[next(iter(src_img))]
-        dummy_map = resample_to_img(dummy_map, parcellation, interpolation="nearest")
+        if parcellation != None:
+            
+            dummy_map = resample_to_img(dummy_map, parcellation, interpolation="nearest")
+        else:
+            parcellation = binarize_img(dummy_map)
         masker = compute_background_mask(dummy_map)
     maskingimg = resample_to_img(parcellation, masker, interpolation="nearest")
     maskingimgdata = np.squeeze(maskingimg.get_fdata().astype(np.int32))
@@ -614,6 +620,8 @@ def permutation_pipeline(
             ],
             axis=1,
         )  # Getting rid of unneeded columns for PCA
+        
+        saveDummyScores(PCAdata, n_comp, data)
         if parcel_num != "No lesion":
             PCAdata = PCAdata.drop([parcel_num], axis=1)
         if output_figures:
@@ -662,6 +670,8 @@ def permutation_pipeline(
             ],
             axis=1,
         )  # Getting rid of unneeded columns for PCA
+        
+        saveDummyScores(PCAdata, n_comp, data)
         if output_figures:
             loadings, PCAresults, _ = PCAfunc(PCAdata, n_comp)
             Tasklabels, Taskindices, FAC_TaskCentres, Grad_TaskCentres = averageData(
@@ -690,6 +700,26 @@ def permutation_pipeline(
     return score_dict
 
 
+def saveDummyScores(PCAdata, n_comp, data):
+    loadings, PCAresults, _ = PCAfunc(PCAdata, n_comp)
+    expresults = pd.DataFrame(PCAresults.T,index=data.index)
+    expresults[["Task_name",
+            "Participant #",
+            "Gradient 1",
+                "Gradient 2",
+                "Gradient 3"]]=data[["Task_name",
+            "Participant #",
+            "Gradient 1",
+                "Gradient 2",
+                "Gradient 3"]]
+    expresults.to_csv("debug/internal_scores.csv")
+    loadings.to_csv("debug/internal_loadings.csv")
+    for i in loadings.columns:
+        lods = loadings[i]
+        img = wordcloud(lods)
+        img.save(f"debug/{i}_wordcloud.png")
+
+
 def func_perm(
     data,
     gradientMaps,
@@ -702,6 +732,7 @@ def func_perm(
     subject_level=False,
     version=None,
     subset=True,
+    output_figures=False,
     verbose=1,
     debug=False,
 ):
@@ -716,8 +747,9 @@ def func_perm(
         subject_level=subject_level,
         version=version,
         subset=subset,
+        output_figures=output_figures,
         parcelnames=parcelnames,
-        debug=False,
+        debug=debug,
     )
     if version == "GRAD":
         if subset:
@@ -785,11 +817,11 @@ def parcel_dropout(
     subject_level=False,
     nproc=1,
     subset=True,
+    output_figures=False,
     debug=False,
     verbose=1,
 ):
-    global debugFlag
-    debugFlag = debug
+
     datacols = data.drop(
         [
             "Participant #",
@@ -801,7 +833,10 @@ def parcel_dropout(
         axis=1,
     ).columns.to_list()  # Getting rid of unneeded columns for PCA
     datacols.insert(0, "No lesion")
-    number_of_parcellations = int(parcellation.get_fdata().astype(np.int32).max()) + 1
+    if parcellation != None:
+        number_of_parcellations = int(parcellation.get_fdata().astype(np.int32).max()) + 1
+    else:
+        number_of_parcellations = 1
     PCAtoGradscores = Manager()
     PCAtoGradscores = PCAtoGradscores.dict()
     GradtoPCAscores = Manager()
@@ -823,8 +858,9 @@ def parcel_dropout(
                 subject_level,
                 version="GRAD",
                 subset=subset,
+                output_figures=output_figures,
                 verbose=verbose,
-                debug=debugFlag,
+                debug=debug,
             )
             for i in range(number_of_parcellations)
         )
@@ -842,8 +878,9 @@ def parcel_dropout(
                 subject_level,
                 version="PCA",
                 subset=subset,
+                output_figures=output_figures,
                 verbose=verbose,
-                debug=debugFlag,
+                debug=debug,
             )
             for i in datacols
         )
@@ -861,6 +898,9 @@ def parcel_dropout(
                 subject_level,
                 version="GRAD",
                 subset=subset,
+                output_figures=output_figures,
+                verbose=verbose,
+                debug=debug
             )
             for i in datacols:
                 func_perm(
@@ -875,5 +915,8 @@ def parcel_dropout(
                     subject_level,
                     version="PCA",
                     subset=subset,
+                    output_figures=output_figures,
+                    verbose=verbose,
+                    debug=debug
                 )
     return PCAtoGradscores, GradtoPCAscores
