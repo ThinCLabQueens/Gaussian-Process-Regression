@@ -33,60 +33,65 @@ def load_fmris(path: str) -> dict:
     return imgs
 
 
-def pipeline(yeo = True, splitmaps = False,yeover = "thick_7", subset = False,subject_level = False,shafer_rois=400,datapath="output.csv",n_jobs=-1,debug=False,verbose=1):
+def pipeline(yeo = True, splitmaps = False,yeover = "thick_7", subset = False,subject_level = False,shafer_rois=400,datapath="output.csv",n_jobs=-1,lesions=True,debug=False,verbose=1):
     import itertools
     import plotly.express as px
-    if yeo:
-        yeover = "thick_7"  # Options: "thick_7", "thick_17", "thin_7", "thin_17"
-        yeonum = yeover.split("_")[-1]
-        atlasdir = "yeo_networks"
-        parcellation = load_img(fetch_atlas_yeo_2011(atlasdir)[yeover])
-        if splitmaps:
-            mdata = np.squeeze(parcellation.get_fdata())
-            for i in range(int(yeonum)):
-                i = i + 1
-                mdata_ = np.where(np.logical_and(mdata != 0, mdata != i), 10, mdata)
-                mdata_ = np.where(mdata_ == i, 100, mdata_)
-                mapn = new_img_like(parcellation, mdata_)
-                nib.save(mapn, f"yeo_{yeonum}_{i}.nii.gz")
-            return 
-        if yeonum == "17":
-            parcelnames = [
-                b"No lesion",
-                b"VisCent",
-                b"VisPeri",
-                b"Somatomotor A",
-                b"Somatomotor B",
-                b"Dorsal Attention A",
-                b"Dorsal Attention B",
-                b"Salience/Ventral Attention A",
-                b"Salience/Ventral Attention B",
-                b"Limbic B",
-                b"Limbic A",
-                b"Control A",
-                b"Control B",
-                b"Control C",
-                b"Temporal Parietal",
-                b"Default A",
-                b"Default B",
-                b"Default C",
-            ]
-        elif yeonum == "7":
-            parcelnames = [
-                b"No lesion",
-                b"Visual",
-                b"Somatomotor",
-                b"Dorsal Attention",
-                b"Ventral Attention",
-                b"Limbic",
-                b"Frontoparietal",
-                b"Default",
-            ]
+    if lesions:
+        if yeo:
+            yeover = "thick_7"  # Options: "thick_7", "thick_17", "thin_7", "thin_17"
+            yeonum = yeover.split("_")[-1]
+            atlasdir = "yeo_networks"
+            parcellation = load_img(fetch_atlas_yeo_2011(atlasdir)[yeover])
+            if splitmaps:
+                mdata = np.squeeze(parcellation.get_fdata())
+                for i in range(int(yeonum)):
+                    i = i + 1
+                    mdata_ = np.where(np.logical_and(mdata != 0, mdata != i), 10, mdata)
+                    mdata_ = np.where(mdata_ == i, 100, mdata_)
+                    mapn = new_img_like(parcellation, mdata_)
+                    nib.save(mapn, f"yeo_{yeonum}_{i}.nii.gz")
+                return 
+            if yeonum == "17":
+                parcelnames = [
+                    b"No lesion",
+                    b"VisCent",
+                    b"VisPeri",
+                    b"Somatomotor A",
+                    b"Somatomotor B",
+                    b"Dorsal Attention A",
+                    b"Dorsal Attention B",
+                    b"Salience/Ventral Attention A",
+                    b"Salience/Ventral Attention B",
+                    b"Limbic B",
+                    b"Limbic A",
+                    b"Control A",
+                    b"Control B",
+                    b"Control C",
+                    b"Temporal Parietal",
+                    b"Default A",
+                    b"Default B",
+                    b"Default C",
+                ]
+            elif yeonum == "7":
+                parcelnames = [
+                    b"No lesion",
+                    b"Visual",
+                    b"Somatomotor",
+                    b"Dorsal Attention",
+                    b"Ventral Attention",
+                    b"Limbic",
+                    b"Frontoparietal",
+                    b"Default",
+                ]
+        else:
+            atlasdir = "shaefer_atlas"
+            parcellation = fetch_atlas_schaefer_2018(n_rois=shafer_rois, data_dir=atlasdir)
+            parcelnames = parcellation["labels"].tolist()
+            parcellation = load_img(parcellation["maps"])
     else:
-        atlasdir = "shaefer_atlas"
-        parcellation = fetch_atlas_schaefer_2018(n_rois=shafer_rois, data_dir=atlasdir)
-        parcelnames = parcellation["labels"].tolist()
-        parcellation = load_img(parcellation["maps"])
+        parcellation = None
+        parcelnames = [
+                    b"No lesion"]
     data = pd.read_csv(
         datapath
     )  # Reading datafile (should be in the same directory as our IDE)
