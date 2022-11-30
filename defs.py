@@ -27,7 +27,7 @@ from sklearn.metrics import check_scoring
 #     f"{user_dir}/anaconda3/envs/gpr/Lib/R/bin/x64;" + os.environ["PATH"]
 # )
 from sklearn.model_selection import (KFold, LeaveOneGroupOut, cross_val_score,
-                                     permutation_test_score)
+                                     permutation_test_score,GroupShuffleSplit)
 from sklearn.model_selection._split import check_cv
 from sklearn.preprocessing import StandardScaler
 from sklearn.utils import _safe_indexing, check_random_state, indexable
@@ -152,7 +152,7 @@ def permutation_test_score_(
             clone(estimator),
             X,
             _shuffle(
-                y, None if cv.__class__ == LeaveOneGroupOut else groups, random_state
+                y, None, random_state
             ),
             groups,
             cv,
@@ -172,16 +172,19 @@ def _permutation_test_score(estimator, X, y, groups, cv, scorer, fit_params) -> 
     fit_params = fit_params if fit_params is not None else {}
     avg_score = []
     subject_level = fit_params["subject_level"]
+    pca_all = fit_params["pca_all"]
+        
     for train, test in (
-        cv.split(X, y, groups) if cv.__class__ == LeaveOneGroupOut else cv.split(X, y)
+        cv.split(X, y, groups)
     ):
         X_train, y_train = _safe_split(estimator, X, y, train)
         X_test, y_test = _safe_split(estimator, X, y, test, train)
         fit_params = _check_fit_params(X, fit_params, train)
         estimator.fit(X_train, y_train, train)
-        y_test = estimator.pred_PCAs(y_test, mean=subject_level)
-        if not subject_level:
-            y_test = y_test.mean(axis=0).reshape(1, -1)
+        if not pca_all:
+            y_test = estimator.pred_PCAs(y_test, mean=subject_level)
+        #if not subject_level:
+           # y_test = y_test.mean(axis=0).reshape(1, -1)
         avg_score.append(scorer(estimator, X_test, y_test))
     return np.mean(avg_score)
 
@@ -210,6 +213,7 @@ def permtest(
     subset=False,
     version=None,
     debug=False,
+    pca_all=None,
 ) -> dict:
     """
     This function performs a permutation test on the data.
@@ -229,18 +233,24 @@ def permtest(
     scores : dict
         Dictionary containing the scores and p-values of the permutation test.
     """
-    kf = LeaveOneGroupOut()
-    kf = KFold(n_splits=k)
-    gprmodel = gpr(subject_level=subject_level, refdata=data, version=version)
+    # kf = LeaveOneGroupOut()
+    # kf = KFold(n_splits=k)
+    kf = GroupShuffleSplit(n_splits=k)
+    gprmodel = gpr(subject_level=subject_level, refdata=data, version=version,pca_all=pca_all)
     # loadings, PCAresults = PCAfunc(PCAdata, n_comp)
     if version == "PCA":
         Tasklabels, Taskindices, X, y = averageData(
             data, PCAresults=None, average=False
         )
+        if pca_all:
+            X=gprmodel.pred_PCAs(X,mean=subject_level,fit=True).T
     else:
         Tasklabels, Taskindices, y, X = averageData(
             data, PCAresults=None, average=False
         )
+        if pca_all:
+            y=gprmodel.pred_PCAs(y,mean=subject_level,fit=True).T
+
     score_gradfac, perm_scores_gradfac, pvalue_gradfac = permutation_test_score_(
         gprmodel,
         X,
@@ -250,7 +260,7 @@ def permtest(
         cv=kf,
         n_permutations=1000 if debug == False else 1,
         n_jobs=-1 if debug == False else 1,
-        fit_params={"subject_level": subject_level},
+        fit_params={"subject_level": subject_level,"pca_all":pca_all},
     )
     scores = {"total": [score_gradfac, pvalue_gradfac]}
     if subset == False:
@@ -258,6 +268,8 @@ def permtest(
             # y_ = y[:, PCnum]
             # kf = LeaveOneGroupOut()
             # kf = KFold(n_splits=k)
+            y_ = y[:,PCnum].reshape([-1,1]) if pca_all else y
+            
             gprmodel = gpr(
                 subject_level=subject_level, refdata=data, version=version, PCnum=PCnum
             )
@@ -268,13 +280,13 @@ def permtest(
             ) = permutation_test_score_(
                 gprmodel,
                 X,
-                y,
+                y_,
                 groups=Taskindices,
                 scoring="neg_mean_absolute_error",
                 cv=kf,
                 n_permutations=1000 if debug == False else 1,
                 n_jobs=-1 if debug == False else 1,
-                fit_params={"subject_level": subject_level},
+                fit_params={"subject_level": subject_level,"pca_all":pca_all},
             )
             # scores[PCnum] = [score_gradfac, pvalue_gradfac]
             # zscore_gradfac = st.norm.  pvalue_gradfac
@@ -283,13 +295,14 @@ def permtest(
 
 
 class gpr(BaseEstimator):
-    def __init__(self, kernel: Kernel = Matern(nu=2.5) + WhiteKernel(), subject_level: bool = False, n_comp: int = 4, refdata=None, version=None, PCnum=None) -> None:  # type: ignore
+    def __init__(self, kernel: Kernel = Matern(nu=2.5) + WhiteKernel(), subject_level: bool = False, n_comp: int = 4, refdata=None, version=None, PCnum=None,pca_all=False) -> None:  # type: ignore
         self.n_comp = n_comp
         self.subject_level = subject_level
         self.kernel = kernel
         self.version = version
         self.refdata = refdata
         self.PCnum = PCnum
+        self.pca_all = pca_all
         self.model = GaussianProcessRegressor(
             kernel=kernel, random_state=3, normalize_y=False, alpha=0
         )
@@ -304,6 +317,7 @@ class gpr(BaseEstimator):
                     "refdata": self.refdata,
                     "version": self.version,
                     "PCnum": self.PCnum,
+                    "pca_all":self.pca_all,
                 }
             )
             if deep
@@ -314,6 +328,7 @@ class gpr(BaseEstimator):
                 "refdata": self.refdata,
                 "version": self.version,
                 "PCnum": self.PCnum,
+                "pca_all":self.pca_all,
             }
         )
 
@@ -326,23 +341,23 @@ class gpr(BaseEstimator):
         Returns:
             The fitted model.
         """
-        if train != None:
-            refdata = self.refdata.iloc[train]
-        else:
-            refdata = self.refdata
+        refdata = self.refdata.iloc[train] if isinstance(train,np.ndarray) else self.refdata
         if self.version == "PCA":
-            self.loadings, PCAresults, self.PCModel = PCAfunc(X, self.n_comp, verbose=0)
-            __, _, X, y = averageData(
-                refdata, PCAresults, average=not self.subject_level
-            )
+            if not self.pca_all:
+                self.loadings, PCAresults, self.PCModel = PCAfunc(X, self.n_comp, verbose=0)
+                __, _, X, y = averageData(
+                    refdata, PCAresults, average=not self.subject_level
+                )
+            
             if self.PCnum != None:
                 y = y[:, self.PCnum]
         else:
             # if self.PCnum != None:
-            self.loadings, PCAresults, self.PCModel = PCAfunc(y, self.n_comp, verbose=0)
-            __, _, y, X = averageData(
-                refdata, PCAresults, average=not self.subject_level
-            )
+            if not self.pca_all:
+                self.loadings, PCAresults, self.PCModel = PCAfunc(y, self.n_comp, verbose=0)
+                __, _, y, X = averageData(
+                    refdata, PCAresults, average=not self.subject_level
+                )
             if self.PCnum != None:
                 y = y[:, self.PCnum]
 
@@ -353,7 +368,7 @@ class gpr(BaseEstimator):
         _f()
         return self.model
 
-    def pred_PCAs(self, y: np.ndarray, **kwargs) -> np.ndarray:
+    def pred_PCAs(self, y: np.ndarray, fit=False,**kwargs) -> np.ndarray:
         """
         This is a multi-line Google style docstring.
 
@@ -364,6 +379,9 @@ class gpr(BaseEstimator):
         Returns:
             np.ndarray: The output data.
         """
+        if fit:
+            self.loadings, PCAresults, self.PCModel = PCAfunc(y, self.n_comp, verbose=0)
+            return PCAresults
         if self.version == "GRAD":
             y = self.PCModel.transform(y)
             y = np.dot(y, self.loadings)
@@ -375,11 +393,12 @@ class gpr(BaseEstimator):
         return y
 
     def predict(self, X, **kwargs):
-        if self.version == "PCA":
-            X = self.PCModel.transform(X)
-            X = np.dot(X, self.loadings)
-        if not self.subject_level:
-            X = X.mean(axis=0).reshape(1, -1)
+        if not self.pca_all:
+            if self.version == "PCA":
+                X = self.PCModel.transform(X)
+                X = np.dot(X, self.loadings)
+        # if not self.subject_level:
+        #     X = X.mean(axis=0).reshape(1, -1)
         return self.model.predict(X, **kwargs)
 
     def score(self, X, y):
@@ -411,7 +430,7 @@ def PCAfunc(
             f"KMO test: {kmo_model}"
         )  # We want this to be > 0.6"kmo_all, kmo_model  # kmo_model > 0.6 is acceptable
     # PCAmodel = CustomPCA(n_components=n_comp, rotation="varimax")
-    # PCAdata = zscore(cols as array, axis=1)
+ 
     scaler = StandardScaler()
     try:
         PCAdata_ = scaler.fit_transform(PCAdata.values)
@@ -576,6 +595,7 @@ def permutation_pipeline(
     version=None,
     subset=True,
     debug=False,
+    pca_all=None
 ):
     """
     This function runs the permutation pipeline.
@@ -622,6 +642,7 @@ def permutation_pipeline(
         )  # Getting rid of unneeded columns for PCA
         
         saveDummyScores(PCAdata, n_comp, data)
+        
         if parcel_num != "No lesion":
             PCAdata = PCAdata.drop([parcel_num], axis=1)
         if output_figures:
@@ -643,6 +664,7 @@ def permutation_pipeline(
             subset=subset,
             version=version,
             debug=debug,
+            pca_all=pca_all
         )
         score_dict["PCA->Gradients"] = scores
         if verbose > 0:
@@ -691,6 +713,7 @@ def permutation_pipeline(
             subset=subset,
             version=version,
             debug=debug,
+            pca_all=pca_all
         )
         score_dict["Gradients->PCA"] = scores
         if verbose > 0:
@@ -735,6 +758,7 @@ def func_perm(
     output_figures=False,
     verbose=1,
     debug=False,
+    pca_all=None
 ):
     score_permuation = permutation_pipeline(
         data,
@@ -750,6 +774,7 @@ def func_perm(
         output_figures=output_figures,
         parcelnames=parcelnames,
         debug=debug,
+        pca_all=pca_all
     )
     if version == "GRAD":
         if subset:
@@ -820,6 +845,7 @@ def parcel_dropout(
     output_figures=False,
     debug=False,
     verbose=1,
+    pca_all=None
 ):
 
     datacols = data.drop(
@@ -861,10 +887,13 @@ def parcel_dropout(
                 output_figures=output_figures,
                 verbose=verbose,
                 debug=debug,
+                pca_all=pca_all
             )
             for i in range(number_of_parcellations)
         )
         print("Performing gradient predictions")
+        if number_of_parcellations == 1:
+            datacols = ["No lesion"]
         Parallel(n_jobs=nproc)(
             delayed(func_perm)(
                 data,
@@ -881,6 +910,7 @@ def parcel_dropout(
                 output_figures=output_figures,
                 verbose=verbose,
                 debug=debug,
+                pca_all=pca_all
             )
             for i in datacols
         )
